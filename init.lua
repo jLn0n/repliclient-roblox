@@ -24,15 +24,17 @@ local config do
 	local isATable = (typeof(loadedConfig) == "table")
 	loadedConfig = (if isATable then loadedConfig else table.create(0))
 	
+	if not isATable then warn("[REPLICLIENT]: Failed to load configuration, loading default...") end
+
 	loadedConfig.socketUrl = (if not loadedConfig.socketUrl then "ws://eu-repliclient-ws.herokuapp.com" else loadedConfig.socketUrl)
 	loadedConfig.sendPerSecond = (if typeof(loadedConfig.sendPerSecond) ~= "number" then 5 else loadedConfig.sendPerSecond)
 	loadedConfig.recievePerSecond = (if typeof(loadedConfig.recievePerSecond) ~= "number" then 10 else loadedConfig.recievePerSecond)
 	
-	loadedConfig.collidableCharacters = (if typeof(loadedConfig.collidableCharacters) ~= "boolean" then true else loadedConfig.collidableCharacters)
 	loadedConfig.chatBubble = (if typeof(loadedConfig.chatBubble) ~= "boolean" then false else loadedConfig.chatBubble)
+	loadedConfig.collidableCharacters = (if typeof(loadedConfig.collidableCharacters) ~= "boolean" then true else loadedConfig.collidableCharacters)
 	
 	loadedConfig.debugMode = (if typeof(loadedConfig.debugMode) ~= "boolean" then false else loadedConfig.debugMode)
-
+	
 	config = loadedConfig
 end
 -- env modifications
