@@ -60,7 +60,6 @@ function wsLib.new(url: string)
 		initializeSocket(socket, reconnectSocket)
 		return setmetatable(wsObj, wsLib)
 	else
-		if config.debugMode then warn(socket) end
 		return nil
 	end
 end
