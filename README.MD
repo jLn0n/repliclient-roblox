@@ -10,7 +10,9 @@ Also join our discord server by clicking this link: https://discord.gg/NsY3maz7d
     <br>
     <p>
         This is the websocket version, you can only connect to websocket-based server.<br>
-        If you wanna use the long-polling version, <a href="https://github.com/jLn0n/repliclient-roblox/tree/long-polling">click this link</a>.
+        If you wanna use the long-polling version, <a href="https://github.com/jLn0n/repliclient-roblox/tree/long-polling">click this link</a>.<br><br>
+
+        This is recommended if you are using Synapse X.
     </p>
 </details>
 
