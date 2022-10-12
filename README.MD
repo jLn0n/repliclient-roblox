@@ -2,8 +2,17 @@
 
 <i>Client replication for other clients</i>
 
-This is the websocket version, you can only connect to websocket-based server!  
-If you wanna use the long-polling version, [click this link](https://github.com/jLn0n/repliclient-roblox/tree/long-polling).
+Note: This is still on beta stage, so expect bugs!  
+Also join our discord server by clicking this link: https://discord.gg/NsY3maz7dj  
+
+<details>
+	<summary>CLICK ME!!</summary>
+	<br>
+	<p>
+		This is the websocket version, you can only connect to websocket-based server.<br>
+		If you wanna use the long-polling version, <a href="https://github.com/jLn0n/repliclient-roblox/tree/long-polling">click this link</a>.
+	</p>
+</details>
 
 ## Script
 
@@ -12,9 +21,10 @@ local config = {
 	-- server
 	socketUrl = "ws://eu-repliclient-ws.herokuapp.com/",
 
-	-- replication
-	sendPerSecond = 5, -- 5 hertz per second
-	recievePerSecond = 10, -- 10 hertz per second
+	-- packets
+    -- high value = smooth, low value = janky
+    sendPerSecond = 5, -- 5hz per second
+    recievePerSecond = 10, -- 10hz per second
 
 	-- misc
 	chatBubble = false,
