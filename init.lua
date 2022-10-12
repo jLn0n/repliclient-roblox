@@ -36,7 +36,7 @@ local characterTemplate = game:GetObjects("rbxassetid://6843243348")[1]
 -- libraries
 local bitBuffer = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/Dekkonot/bitbuffer/main/src/roblox.lua"))()
 local base64 = loadstring(game:HttpGetAsync("https://gist.githubusercontent.com/Reselim/40d62b17d138cc74335a1b0709e19ce2/raw/fast_base64.lua"))()
-local wsLib = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/jLn0n/repliclient-roblox/websocket/src/utils/wslib.lua"))()
+local wsLib = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/jLn0n/repliclient-roblox/websocket/utils/wslib.lua"))()
 -- variables
 local accumulatedRecieveTime = 0
 local socketObj = wsLib.new(config.socketUrl)
