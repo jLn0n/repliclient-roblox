@@ -1,21 +1,3 @@
---[[
-	TODO: (not in order)
-	#1 DONE: reduce the bandwidth, and use some shenanigans
-	#2 DONE: add packet delay
-	#3 DONE: fix the flickering of character parts on some cases
-	#4 DONE: host a personal server because yes
-	#5 DONE: add a id for packet comms (for better packet handling)
-	#6 DONE: rewrite the networking code and make it like the roblox ones
-	#7: change the name (repliclient kinda sucks)
-	#8 DONE: fix character being cloned so many times
-	#9: add a thing for handling instance replication (i got no idea on how to do that, and i dont want to sacrifice performance)
-	#10: fix a rare case when the packet "ID_CHAR_UPDATE" errors causing delays
-	#11 DONE: fix already connected client not showing the character to newly connected client
-	#12: centralize the server instead of running on clients
-	#13: make character limbs uncollidable
-	#14: fix erroring when reconnecting
-	#15: publish the script to public use
---]]
 -- initialization
 local version = "1.0.0"
 
