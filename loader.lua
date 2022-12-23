@@ -26,7 +26,7 @@ getgenv().import = function(path, branch)
 		for pathIndex, pathStr in sepPath do
 			if pathIndex == #sepPath then
 				currentPath ..= "/" .. pathStr
-				local origSrc = (if isfile(currentPath) then readfile(currentPath) else nil)
+				local origSrc = (isfile(currentPath) and readfile(currentPath)) or ""
 
 				if (origSrc ~= cloudSrc) and not DEV_MODE then
 					writefile(currentPath, cloudSrc)
@@ -41,7 +41,7 @@ getgenv().import = function(path, branch)
 	else
 		return error(string.format("Cannot get '%s' with branch '%s' from the repository.", path, branch))
 	end
-	return loadstring(cloudSrc, "=repliclient/" .. path)
+	return loadstring(cloudSrc, "@repliclient/" .. path)
 end
 
 -- main
