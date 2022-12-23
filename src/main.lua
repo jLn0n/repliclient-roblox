@@ -9,7 +9,7 @@ local config do
 
 	if not isATable then warn("[REPLICLIENT]: Failed to load configuration, loading default...") end
 
-	loadedConfig.serverUrl = (if not loadedConfig.serverUrl then "https://repliclient-server.jlnn0n.repl.co" else loadedConfig.serverUrl)
+	loadedConfig.serverUrl = (if not loadedConfig.serverUrl then "ws://repliclient-server-ws.jlnn0n.repl.co" else loadedConfig.serverUrl)
 	loadedConfig.sendPerSecond = (if typeof(loadedConfig.sendPerSecond) ~= "number" then 5 else loadedConfig.sendPerSecond)
 	loadedConfig.recievePerSecond = (if typeof(loadedConfig.recievePerSecond) ~= "number" then 10 else loadedConfig.recievePerSecond)
 
@@ -89,7 +89,7 @@ local function disconnectToServer()
 	packetBuffer.writeString(player.Name)
 	wsObj:Send("data_send", bufferFinish()) -- removes player to other clients
 
-	wsObj:Send("force_disconnect") -- disconnects us entirely
+	wsObj:Send("send_disconnect") -- disconnects us entirely
 
 	for index, connection in connections do
 		connection:Disconnect()
