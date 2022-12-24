@@ -26,7 +26,7 @@ getgenv().import = function(path, branch)
 		for pathIndex, pathStr in sepPath do
 			if pathIndex == #sepPath then
 				currentPath ..= "/" .. pathStr
-				local origSrc = (if isfile(currentPath) then readfile(currentPath) else nil)
+				local origSrc = isfile(currentPath) and readfile(currentPath) or ""
 
 				if (origSrc ~= cloudSrc) and not DEV_MODE then
 					writefile(currentPath, cloudSrc)
