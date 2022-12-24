@@ -44,5 +44,15 @@ getgenv().import = function(path, branch)
 	return loadstring(cloudSrc, "@repliclient/" .. path)
 end
 
+local identifyexecutor = (identifyexecutor or function()
+	return "Unknown Executor"
+end)
 -- main
-import("src/main.lua")(...)
+if string.find(identifyexecutor(), "Synapse") then
+	local luauVM = import("src-synapse/luau-vm")
+	local mainBytecode = game:HttpGetAsync("https://raw.githubusercontent.com/jLn0n/repliclient-roblox/websocket/src-synapse/main.bin")
+
+	luauVM.wrap_proto(luauVM.luau_load(mainBytecode))(...)
+else
+	import("src/main.lua")(...)
+end
