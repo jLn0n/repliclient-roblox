@@ -26,7 +26,7 @@ getgenv().import = function(path, branch)
 		for pathIndex, pathStr in sepPath do
 			if pathIndex == #sepPath then
 				currentPath ..= "/" .. pathStr
-				local origSrc = isfile(currentPath) and readfile(currentPath) or ""
+				local origSrc = (if isfile(currentPath) then readfile(currentPath) else nil)
 
 				if (origSrc ~= cloudSrc) and not DEV_MODE then
 					writefile(currentPath, cloudSrc)
@@ -44,15 +44,5 @@ getgenv().import = function(path, branch)
 	return loadstring(cloudSrc, "@repliclient/" .. path)
 end
 
-local identifyexecutor = (identifyexecutor or function()
-	return "Unknown Executor"
-end)
 -- main
-if string.find(identifyexecutor(), "Synapse") then
-	local luauVM = import("src-synapse/luau-vm")
-	local mainBytecode = game:HttpGetAsync("https://raw.githubusercontent.com/jLn0n/repliclient-roblox/websocket/src-synapse/main.bin")
-
-	luauVM.wrap_proto(luauVM.luau_load(mainBytecode))(...)
-else
-	import("src/main.lua")(...)
-end
+import("src/main.lua")(...)
