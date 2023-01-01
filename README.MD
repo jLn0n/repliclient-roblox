@@ -10,7 +10,7 @@ Also join our discord server by clicking this link: https://discord.gg/NsY3maz7d
 ```lua
 local config = {
     -- server
-    serverUrl = "ws://eu-repliclient-ws.herokuapp.com/",
+    serverUrl = "wss://repliclient-server-ws.jlnn0n.repl.co",
 
     -- packets
     -- high value = smooth, low value = janky
