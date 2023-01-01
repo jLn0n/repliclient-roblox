@@ -88,8 +88,7 @@ local function disconnectToServer()
 
 	packetBuffer.writeString(player.Name)
 	wsObj:Send("data_send", bufferFinish()) -- removes player to other clients
-
-	wsObj:Send("send_disconnect") -- disconnects us entirely
+	wsObj:Close() -- disconnects us entirely
 
 	for index, connection in connections do
 		connection:Disconnect()
@@ -138,12 +137,12 @@ local function rateCheck(name, rate)
 
 	if rateInfo.lastTime == -1 then
 		-- initializes rateInfo
-		rateInfo.lastTime = os.time()
+		rateInfo.lastTime = os.clock()
 
 		return true
 	else
 		rateInfo.lastTime = (rateInfo.lastTime or os.clock())
-		local timeElapsed = os.time() - rateInfo.lastTime
+		local timeElapsed = os.clock() - rateInfo.lastTime
 
 		if timeElapsed >= (1 / rate) then
 			rateInfo.lastTime = os.clock()
@@ -186,7 +185,7 @@ refs.oldIndex = hookmetamethod(game, "__index", function(...)
 	return refs.oldIndex(...)
 end)
 
-wsObj:on("connect", function(data)
+wsObj:on("connect", function(clientId)
 	--[[
 		some connection post initialization here
 	--]]
@@ -195,7 +194,7 @@ wsObj:on("connect", function(data)
 	packetBuffer.writeString(player.Name)
 	wsObj:Send("data_send", bufferFinish())
 	refs["ID_PLR_ADD-bufferCache"] = bufferFinish
-	print(string.format("\n|  Repliclient - v%s\n|  Server URL: `%s`\n|  Host: `%s`", version, config.serverUrl, identifyexecutor()))
+	print(string.format("\n|  Repliclient [v%s]\n|  Client ID: `%s`\n|  Server URL: `%s`\n|  Host: `%s`", version, clientId, config.serverUrl, identifyexecutor()))
 	clientReady = true
 end)
 
@@ -351,13 +350,16 @@ table.insert(connections, runService.Stepped:Connect(function()
 			part = (
 				if (part:IsA("BasePart") and table.find(characterParts, part.Name)) then
 					part
-				elseif (part:IsA("Accessory") and part:FindFirstChild("Handle")) then
-					part.Handle
 				else nil
 			)
 
 			if not part then continue end
-			part.CanCollide = (if ((not config.collidableCharacters) or table.find(characterLimbParts, part.Name)) then false else true)
+			part.CanCollide = (
+				if config.collidableCharacters and not table.find(characterLimbParts, part.Name) then
+					true
+				else
+					false
+			)
 		end
 	end
 end))

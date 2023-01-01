@@ -3,7 +3,13 @@ local httpService = game:GetService("HttpService")
 -- libraries
 local base64 = import("src/utils/base64.lua")()
 -- variables
-local WebSocket = (syn and syn.websocket) or WebSocket
+local WebSocket = (
+	if syn and syn.websocket then
+		syn.websocket
+	elseif WebSocket then
+		WebSocket
+	else table.create(0)
+)
 -- main
 local wsLib = {}
 wsLib.__index = wsLib
@@ -21,7 +27,7 @@ function wsLib.new(url)
 
 		local function onSocketMsg(message)
 			message = httpService:JSONDecode(base64.decode(message))
-			local eventName, data = message.name, message.data
+			local eventName, data = base64.decode(message.name), message.data
 
 			if not self.handlers[eventName] then return end
 			self.handlers[eventName](data)
@@ -44,7 +50,7 @@ function wsLib.new(url)
 
 			self._socket = nil
 			print("Lost connection, reconnecting...")
-			repeat task.wait(1)
+			repeat task.wait(2.5)
 				local succ, result = pcall(WebSocket.connect, url)
 
 				if succ then
@@ -56,7 +62,7 @@ function wsLib.new(url)
 
 			if reconnected then
 				print("Reconnected successfully!")
-				initializeSocket(newSocket, reconnectSocket)
+				task.defer(initializeSocket, newSocket, reconnectSocket)
 			else
 				warn("Failed to reconnect after 5 tries.")
 			end
