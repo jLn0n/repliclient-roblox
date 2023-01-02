@@ -27,10 +27,11 @@ function wsLib.new(url)
 
 		local function onSocketMsg(message)
 			message = httpService:JSONDecode(base64.decode(message))
-			local eventName, data = base64.decode(message.name), message.data
+			local eventName, data, timestamp =
+				base64.decode(message.name), message.data, message.timestamp
 
 			if not self.handlers[eventName] then return end
-			self.handlers[eventName](data)
+			self.handlers[eventName](data, timestamp)
 		end
 
 		local function initializeSocket(socket, reconnectCallback)
@@ -50,13 +51,15 @@ function wsLib.new(url)
 
 			self._socket = nil
 			print("Lost connection, reconnecting...")
-			repeat task.wait(2.5)
+			repeat
 				local succ, result = pcall(WebSocket.connect, url)
 
 				if succ then
 					reconnected, newSocket = true, result
+					break
 				else
 					reconnectCount += 1
+					task.wait(2.5)
 				end
 			until (reconnected or reconnectCount >= 5)
 

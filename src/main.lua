@@ -9,11 +9,11 @@ local config do
 
 	if not isATable then warn("[REPLICLIENT]: Failed to load configuration, loading default...") end
 
-	loadedConfig.serverUrl = (if not loadedConfig.serverUrl then "ws://repliclient-server-ws.jlnn0n.repl.co" else loadedConfig.serverUrl)
-	loadedConfig.sendPerSecond = (if typeof(loadedConfig.sendPerSecond) ~= "number" then 5 else loadedConfig.sendPerSecond)
-	loadedConfig.recievePerSecond = (if typeof(loadedConfig.recievePerSecond) ~= "number" then 10 else loadedConfig.recievePerSecond)
+	loadedConfig.serverUrl = (if not loadedConfig.serverUrl then "wss://repliclient-server.jlnn0n.repl.co" else loadedConfig.serverUrl)
+	
+	loadedConfig.charUpdateHz = (if typeof(loadedConfig.charUpdateHz) ~= "number" then 5 else loadedConfig.charUpdateHz)
 
-	loadedConfig.chatBubble = (if typeof(loadedConfig.chatBubble) ~= "boolean" then false else loadedConfig.chatBubble)
+	loadedConfig.chatBubbleEnabled = (if typeof(loadedConfig.chatBubbleEnabled) ~= "boolean" then false else loadedConfig.chatBubbleEnabled)
 	loadedConfig.collidableCharacters = (if typeof(loadedConfig.collidableCharacters) ~= "boolean" then true else loadedConfig.collidableCharacters)
 
 	loadedConfig.debugMode = (if typeof(loadedConfig.debugMode) ~= "boolean" then false else loadedConfig.debugMode)
@@ -26,6 +26,7 @@ local identifyexecutor = (identifyexecutor or function()
 end)
 -- services
 local chatService = game:GetService("Chat")
+local httpService = game:GetService("HttpService")
 local players = game:GetService("Players")
 local runService = game:GetService("RunService")
 local starterGui = game:GetService("StarterGui")
@@ -42,10 +43,11 @@ local wsLib = import("src/utils/ws-lib.lua")()
 local accumulatedRecieveTime = 0
 local clientReady = false
 local wsObj = assert(wsLib.new(config.serverUrl), string.format("Failed to connect to '%s'. This might happen because server is closed or unreachable.", config.serverUrl))
+local serverInfo
+local rateInfos = table.create(0)
 local connections, refs = table.create(10), table.create(0)
 local connectedPlrs, connectedPlrChars = table.create(0), table.create(0)
 local userIdCache = table.create(0)
-local rateInfos = table.create(0)
 local characterParts = {"Head", "Torso", "Left Arm", "Right Arm", "Left Leg", "Right Leg", "HumanoidRootPart"}
 local characterLimbParts = {"Left Arm", "Right Arm", "Left Leg", "Right Leg"}
 local replicationIDs = {
@@ -128,8 +130,8 @@ local function getCharacterFromUserId(userId)
 	end
 end
 
-local function rateCheck(name, rate)
-	rate /= 10
+local function rateCheck(name, rate, timestamp)
+	timestamp = (timestamp or os.clock())
 	rateInfos[name] = (if not rateInfos[name] then {
 		["lastTime"] = -1,
 	} else rateInfos[name])
@@ -137,15 +139,15 @@ local function rateCheck(name, rate)
 
 	if rateInfo.lastTime == -1 then
 		-- initializes rateInfo
-		rateInfo.lastTime = os.clock()
+		rateInfo.lastTime = timestamp
 
 		return true
 	else
-		rateInfo.lastTime = (rateInfo.lastTime or os.clock())
-		local timeElapsed = os.clock() - rateInfo.lastTime
+		rateInfo.lastTime = (rateInfo.lastTime or timestamp)
+		local timeElapsed = timestamp - rateInfo.lastTime
 
 		if timeElapsed >= (1 / rate) then
-			rateInfo.lastTime = os.clock()
+			rateInfo.lastTime = timestamp
 
 			return true
 		else
@@ -171,7 +173,7 @@ end
 -- main
 if humanoid.RigType ~= Enum.HumanoidRigType.R6 then return warn("Repliclient currently only support R6 characters.") end
 
-refs.oldIndex = hookmetamethod(game, "__index", function(...)
+refs.gameIndex = hookmetamethod(game, "__index", function(...)
 	local self, index = ...
 
 	-- returns the connected player when called from exploit environment, returns nil if not
@@ -182,26 +184,34 @@ refs.oldIndex = hookmetamethod(game, "__index", function(...)
 			return players
 		end
 	end
-	return refs.oldIndex(...)
+	return refs.gameIndex(...)
 end)
 
-wsObj:on("connect", function(clientId)
+wsObj:on("connect", function(serverInfoRaw)
 	--[[
 		some connection post initialization here
 	--]]
-	local packetBuffer, bufferFinish = createPacketBuffer("ID_PLR_ADD")
+	local packetBuffer, bufferFinish do
+		packetBuffer, bufferFinish = createPacketBuffer("ID_PLR_ADD")
 
-	packetBuffer.writeString(player.Name)
-	wsObj:Send("data_send", bufferFinish())
-	refs["ID_PLR_ADD-bufferCache"] = bufferFinish
-	print(string.format("\n|  Repliclient [v%s]\n|  Client ID: `%s`\n|  Server URL: `%s`\n|  Host: `%s`", version, clientId, config.serverUrl, identifyexecutor()))
+		packetBuffer.writeString(player.Name)
+		wsObj:Send("data_send", bufferFinish())
+		refs["ID_PLR_ADD-bufferCache"] = bufferFinish
+	end
+	serverInfo = httpService:JSONDecode(serverInfoRaw)
+
+	print(string.format("\n|  Repliclient [v%s]\n|  Client ID: `%s`\n|  Server URL: `%s`\n|  Host: `%s`", version, serverInfo.clientId, config.serverUrl, identifyexecutor()))
 	clientReady = true
 end)
-
 repeat runService.Heartbeat:Wait() until clientReady
 
-wsObj:on("data_recieve", function(data)
-	if not rateCheck("recieve", config.recievePerSecond) then return end
+wsObj:on("pong", function(pingStartTime) -- TODO: add a simple debug gui for this thing
+	local pingLatency = math.floor(((os.clock() - pingStartTime) / 2) * 1000)
+	print(pingLatency)
+end)
+
+wsObj:on("data_recieve", function(data, timestamp)
+	if not rateCheck("data_recieve", serverInfo.recievePerSecond, timestamp) then return end
 	accumulatedRecieveTime = runService.Stepped:Wait()
 
 	local succ, packetBuffer = pcall(function()
@@ -214,7 +224,7 @@ wsObj:on("data_recieve", function(data)
 	if packetId == replicationIDs["ID_PLR_ADD"] then
 		local plrName = packetBuffer.readString()
 
-		if (player.Name ~= plrName) then
+		if (player.Name ~= plrName) and not connectedPlrs[plrName] then
 			local plrChar = workspace:FindFirstChild(plrName)
 
 			if (not players:FindFirstChild(plrName) and not connectedPlrs[plrName]) then
@@ -268,6 +278,7 @@ wsObj:on("data_recieve", function(data)
 			connectedPlrChars[plrName] = nil
 		end
 	elseif packetId == replicationIDs["ID_CHAR_UPDATE"] then
+		if not rateCheck("charUpdate", config.charUpdateHz, timestamp) then return end
 		local plrName = packetBuffer.readString()
 
 		if player.Name ~= plrName then
@@ -305,7 +316,7 @@ end)
 -- character updates
 table.insert(connections, runService.Stepped:Connect(function()
 	if not (character and humanoid) then return end
-	if not rateCheck("send", config.sendPerSecond) then return end
+	if not rateCheck("charUpdate", serverInfo.recievePerSecond) then return end
 
 	local packetBuffer, bufferFinish = createPacketBuffer("ID_CHAR_UPDATE")
 
@@ -332,9 +343,15 @@ table.insert(connections, runService.Stepped:Connect(function()
 	wsObj:Send("data_send", bufferFinish())
 end))
 
+table.insert(connections, runService.Heartbeat:Connect(function()
+	if not rateCheck("ping", 1) then return end
+
+	wsObj:Send("ping", os.clock())
+end))
+
 -- chat send
 table.insert(connections, player.Chatted:Connect(function(chatMsg)
-	if chatService.BubbleChatEnabled then chatService:Chat(character, chatMsg, Enum.ChatColor.White) end
+	if (chatService.BubbleChatEnabled and config.chatBubbleEnabled) then chatService:Chat(character, chatMsg, Enum.ChatColor.White) end
 	local packetBuffer, bufferFinish = createPacketBuffer("ID_PLR_CHATTED")
 
 	packetBuffer.writeString(player.Name)
@@ -350,12 +367,18 @@ table.insert(connections, runService.Stepped:Connect(function()
 			part = (
 				if (part:IsA("BasePart") and table.find(characterParts, part.Name)) then
 					part
+				elseif (part:IsA("Accessory") and part:FindFirstChild("Handle")) then
+					part.Handle
 				else nil
 			)
 
 			if not part then continue end
 			part.CanCollide = (
-				if config.collidableCharacters and not table.find(characterLimbParts, part.Name) then
+				if
+					config.collidableCharacters and
+					(not part.Parent:IsA("Accessory")) and
+					(not table.find(characterLimbParts, part.Name))
+				then
 					true
 				else
 					false

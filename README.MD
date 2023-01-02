@@ -9,17 +9,16 @@ Also join our discord server by clicking this link: https://discord.gg/NsY3maz7d
 
 ```lua
 local config = {
-    -- server
-    serverUrl = "wss://repliclient-server-ws.jlnn0n.repl.co",
+	-- server
+	serverUrl = "wss://repliclient-server.jlnn0n.repl.co",
 
-    -- packets
-    -- high value = smooth, low value = janky
-    sendPerSecond = 5, -- 5 hertz per second
-    recievePerSecond = 10, -- 10 hertz per second
+	-- packets
+	-- high value = smooth, low value = janky
+	charUpdateHz = 15, -- 15 hertz per second
 
-    -- misc
-    chatBubble = false,
-    collidableCharacters = true,
+	-- misc
+	chatBubble = false,
+	collidableCharacters = true,
 }
-loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/jLn0n/repliclient-roblox/websocket/loader.lua"))("pump sheshin'", config)
+loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/jLn0n/repliclient-roblox/websocket/loader.lua"))("lmao", config)
 ```
