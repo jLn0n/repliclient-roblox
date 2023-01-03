@@ -10,8 +10,6 @@ local config do
 	if not isATable then warn("[REPLICLIENT]: Failed to load configuration, loading default...") end
 
 	loadedConfig.serverUrl = (if not loadedConfig.serverUrl then "wss://repliclient-server.jlnn0n.repl.co" else loadedConfig.serverUrl)
-	
-	loadedConfig.charUpdateHz = (if typeof(loadedConfig.charUpdateHz) ~= "number" then 5 else loadedConfig.charUpdateHz)
 
 	loadedConfig.chatBubbleEnabled = (if typeof(loadedConfig.chatBubbleEnabled) ~= "boolean" then false else loadedConfig.chatBubbleEnabled)
 	loadedConfig.collidableCharacters = (if typeof(loadedConfig.collidableCharacters) ~= "boolean" then true else loadedConfig.collidableCharacters)
@@ -26,24 +24,29 @@ local identifyexecutor = (identifyexecutor or function()
 end)
 -- services
 local chatService = game:GetService("Chat")
+local coreGui = game:GetService("CoreGui")
 local httpService = game:GetService("HttpService")
+local inputService = game:GetService("UserInputService")
 local players = game:GetService("Players")
 local runService = game:GetService("RunService")
 local starterGui = game:GetService("StarterGui")
+local textService = game:GetService("TextService")
+-- imports
+local base64 = import("src/utils/base64.lua")()
+local bitBuffer = import("src/utils/bitbuffer.lua")()
+local wsLib = import("src/utils/ws-lib.lua")()
 -- objects
 local player = players.LocalPlayer
 local character = player.Character
 local humanoid = character.Humanoid
 local characterTemplate = game:GetObjects("rbxassetid://6843243348")[1]
--- libraries
-local base64 = import("src/utils/base64.lua")()
-local bitBuffer = import("src/utils/bitbuffer.lua")()
-local wsLib = import("src/utils/ws-lib.lua")()
+local debugUI, debugUIFormats = import("src/utils/ui.lua")()
 -- variables
-local accumulatedRecieveTime = 0
+local serverConfig
+local pingStartTime
 local clientReady = false
+local accumulatedRecieveTime = 0
 local wsObj = assert(wsLib.new(config.serverUrl), string.format("Failed to connect to '%s'. This might happen because server is closed or unreachable.", config.serverUrl))
-local serverInfo
 local rateInfos = table.create(0)
 local connections, refs = table.create(10), table.create(0)
 local connectedPlrs, connectedPlrChars = table.create(0), table.create(0)
@@ -166,6 +169,22 @@ local function renderChat(chatter, chatMsg, adornee)
 	})
 end
 
+local function getTextSize(label: TextLabel)
+	local params = Instance.new("GetTextBoundsParams")
+	params.Text = label.Text
+	params.Font = label.FontFace
+	params.Size = label.TextSize
+	params.Width = 1e6
+
+	local succ, textSize = pcall(textService.GetTextBoundsAsync, textService, params)
+	return (
+		if succ then
+			textSize
+		else
+			error(textSize)
+	)
+end
+
 local function unpackOrientation(vectRot, dontUseRadians)
 	vectRot = (if not dontUseRadians then vectRot * (math.pi / 180) else vectRot)
 	return vectRot.X, vectRot.Y, (if typeof(vectRot) == "Vector2" then 0 else vectRot.Z)
@@ -187,31 +206,55 @@ refs.gameIndex = hookmetamethod(game, "__index", function(...)
 	return refs.gameIndex(...)
 end)
 
-wsObj:on("connect", function(serverInfoRaw)
+-- connection
+wsObj:on("connect", function(serverInfo)
 	--[[
 		some connection post initialization here
 	--]]
-	local packetBuffer, bufferFinish do
-		packetBuffer, bufferFinish = createPacketBuffer("ID_PLR_ADD")
+	serverInfo = httpService:JSONDecode(serverInfo)
+	serverConfig = serverInfo.serverConfig
+	do
+		local packetBuffer, bufferFinish = createPacketBuffer("ID_PLR_ADD")
 
 		packetBuffer.writeString(player.Name)
 		wsObj:Send("data_send", bufferFinish())
 		refs["ID_PLR_ADD-bufferCache"] = bufferFinish
 	end
-	serverInfo = httpService:JSONDecode(serverInfoRaw)
+
+	debugUI.Parent = coreGui.RobloxGui
+	debugUI.Version.Text = string.format(debugUIFormats.Version, version)
+	debugUI.ClientID.Text = string.format(debugUIFormats.ClientID, serverInfo.clientId)
+	debugUI.ServerURL.Text = string.format(debugUIFormats.ServerURL, config.serverUrl)
 
 	print(string.format("\n|  Repliclient [v%s]\n|  Client ID: `%s`\n|  Server URL: `%s`\n|  Host: `%s`", version, serverInfo.clientId, config.serverUrl, identifyexecutor()))
 	clientReady = true
 end)
 repeat runService.Heartbeat:Wait() until clientReady
 
-wsObj:on("pong", function(pingStartTime) -- TODO: add a simple debug gui for this thing
-	local pingLatency = math.floor(((os.clock() - pingStartTime) / 2) * 1000)
-	print(pingLatency)
+wsObj:on("pong", function()
+	local pingLatency = ((os.clock() - pingStartTime) / 2) * 1000
+	local pingStatus = (
+		if pingLatency <= 50 then
+			"GREAT"
+		elseif pingLatency <= 100 then
+			"VERY GOOD"
+		elseif pingLatency <= 150 then
+			"GOOD"
+		elseif pingLatency <= 200 then
+			"OKAY"
+		elseif pingLatency <= 250 then
+			"BAD"
+		elseif pingLatency <= 350 then
+			"VERY BAD"
+		else
+			"AWFUL"
+	)
+
+	debugUI.ServerPing.Text = string.format(debugUIFormats.ServerPing, pingLatency, pingStatus)
 end)
 
 wsObj:on("data_recieve", function(data, timestamp)
-	if not rateCheck("data_recieve", serverInfo.recievePerSecond, timestamp) then return end
+	if not rateCheck("data_recieve", serverConfig.recievePerSecond, timestamp) then return end
 	accumulatedRecieveTime = runService.Stepped:Wait()
 
 	local succ, packetBuffer = pcall(function()
@@ -278,7 +321,6 @@ wsObj:on("data_recieve", function(data, timestamp)
 			connectedPlrChars[plrName] = nil
 		end
 	elseif packetId == replicationIDs["ID_CHAR_UPDATE"] then
-		if not rateCheck("charUpdate", config.charUpdateHz, timestamp) then return end
 		local plrName = packetBuffer.readString()
 
 		if player.Name ~= plrName then
@@ -316,7 +358,7 @@ end)
 -- character updates
 table.insert(connections, runService.Stepped:Connect(function()
 	if not (character and humanoid) then return end
-	if not rateCheck("charUpdate", serverInfo.recievePerSecond) then return end
+	if not rateCheck("charUpdate", serverConfig.characterUpdateHz) then return end
 
 	local packetBuffer, bufferFinish = createPacketBuffer("ID_CHAR_UPDATE")
 
@@ -343,10 +385,12 @@ table.insert(connections, runService.Stepped:Connect(function()
 	wsObj:Send("data_send", bufferFinish())
 end))
 
+-- keepalive ping
 table.insert(connections, runService.Heartbeat:Connect(function()
 	if not rateCheck("ping", 1) then return end
 
-	wsObj:Send("ping", os.clock())
+	pingStartTime = os.clock()
+	wsObj:Send("ping")
 end))
 
 -- chat send
@@ -374,8 +418,7 @@ table.insert(connections, runService.Stepped:Connect(function()
 
 			if not part then continue end
 			part.CanCollide = (
-				if
-					config.collidableCharacters and
+				if config.collidableCharacters and
 					(not part.Parent:IsA("Accessory")) and
 					(not table.find(characterLimbParts, part.Name))
 				then
@@ -389,3 +432,25 @@ end))
 
 -- server disconnection
 table.insert(connections, game.Close:Connect(disconnectToServer))
+
+-- ui
+local clientIDTextBounds, serverURLTextBounds = getTextSize(debugUI.ClientID), getTextSize(debugUI.ServerURL)
+local textBoundsX = (
+	if clientIDTextBounds.X < serverURLTextBounds.X then
+		serverURLTextBounds.X
+	else
+		clientIDTextBounds.X
+)
+debugUI.Size = UDim2.fromOffset(textBoundsX + 10, 80)
+
+table.insert(connections, inputService.InputBegan:Connect(function(input, gameProccessed)
+	if input.UserInputType == Enum.UserInputType.Keyboard and (not inputService:GetFocusedTextBox()) then
+		if inputService:IsKeyDown(Enum.KeyCode.LeftControl) and
+			inputService:IsKeyDown(Enum.KeyCode.LeftShift)
+		then
+			if input.KeyCode == Enum.KeyCode.F8 then
+				debugUI.Visible = not debugUI.Visible
+			end
+		end
+	end
+end))

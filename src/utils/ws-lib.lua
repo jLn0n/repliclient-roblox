@@ -40,8 +40,8 @@ function wsLib.new(url)
 				table.remove(self._connections, index)
 			end
 
-			socket.OnMessage:Connect(onSocketMsg)
-			socket.OnClose:Connect(reconnectCallback)
+			table.insert(self._connections, socket.OnMessage:Connect(onSocketMsg))
+			table.insert(self._connections, socket.OnClose:Connect(reconnectCallback))
 			self._socket = socket
 		end
 
