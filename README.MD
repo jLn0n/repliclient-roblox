@@ -12,10 +12,6 @@ local config = {
 	-- server
 	serverUrl = "wss://repliclient-server.jlnn0n.repl.co",
 
-	-- packets
-	-- high value = smooth, low value = janky
-	charUpdateHz = 15, -- 15 hertz per second
-
 	-- misc
 	chatBubble = false,
 	collidableCharacters = true,
