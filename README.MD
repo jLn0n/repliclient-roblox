@@ -1,4 +1,5 @@
 # Repliclient
+Archived since script utilities got obliterated by Roblox.
 
 <i>Client replication for other clients</i>
 
